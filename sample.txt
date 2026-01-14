@@ -1,0 +1,5 @@
+Speed reading is a collection of reading methods which attempt to increase rates of reading without greatly reducing comprehension or retention. Methods include chunking and minimizing subvocalization. The many available speed reading training programs may use books, videos, software, and seminars.
+
+The crux of this technique is presenting a single word at a time, with one letter highlighted at a fixed screen position. This highlighted letter represents the Optimal Recognition Point, typically located about one third into the word. By keeping your eyes fixed on this point, you can process words more quickly without the usual eye movements required for traditional reading.
+
+This application demonstrates the RSVP technique, which stands for Rapid Serial Visual Presentation. It allows you to read at speeds of 300 to 800 words per minute or even faster with practice. The key is to relax your eyes and let the words flow past the fixed focal point.
