@@ -1,4 +1,4 @@
-module skim
+module github.com/varunrandery/skim
 
 go 1.25.5
 
