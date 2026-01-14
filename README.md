@@ -2,6 +2,8 @@
 
 A terminal-based speed reader that displays text using the Rapid Serial Visual Presentation (RSVP) technique Optimal Recognition Point (ORP) highlighting.
 
+![skim](public/demo.png)
+
 ## Installation
 
 ```bash
