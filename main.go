@@ -501,7 +501,7 @@ func (m model) View() string {
 	helpView := m.help.View(m.keys)
 
 	bottomSectionHeight := 8
-	wordRowY := m.height / 2
+	wordRowY := m.height/2 - 1
 
 	var output strings.Builder
 
