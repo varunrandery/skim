@@ -617,7 +617,27 @@ func main() {
 	var words []string
 	args := flag.Args()
 
-	if len(args) >= 1 {
+	// Check if stdin has piped data
+	stdinInfo, _ := os.Stdin.Stat()
+	hasStdin := (stdinInfo.Mode() & os.ModeCharDevice) == 0
+
+	if hasStdin {
+		// Read from stdin
+		content, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", err)
+			os.Exit(1)
+		}
+		if isBinaryFile(content) {
+			fmt.Fprintln(os.Stderr, "Cannot read binary content from stdin")
+			os.Exit(1)
+		}
+		words = tokenize(string(content))
+		if len(words) == 0 {
+			fmt.Fprintln(os.Stderr, "No words found in stdin")
+			os.Exit(1)
+		}
+	} else if len(args) >= 1 {
 		source := args[0]
 
 		// Check if the source is a URL
@@ -656,7 +676,21 @@ func main() {
 		}
 	}
 
-	p := tea.NewProgram(initialModel(words, *wpm), tea.WithAltScreen())
+	// Set up program options
+	opts := []tea.ProgramOption{tea.WithAltScreen()}
+
+	// If stdin was used for content, we need to reopen /dev/tty for keyboard input
+	if hasStdin {
+		tty, err := os.Open("/dev/tty")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening /dev/tty for input: %v\n", err)
+			os.Exit(1)
+		}
+		defer tty.Close()
+		opts = append(opts, tea.WithInput(tty))
+	}
+
+	p := tea.NewProgram(initialModel(words, *wpm), opts...)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

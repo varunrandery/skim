@@ -24,6 +24,7 @@ skim [options] [file|url]
 skim document.txt
 skim -wpm 400 article.md
 skim http://httpbin.org/html
+cat book.md | skim
 skim # Opens file picker
 ```
 
