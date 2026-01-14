@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -162,6 +167,58 @@ func tokenize(text string) []string {
 	return words
 }
 
+// sanitizeHTML extracts text content from HTML using html-to-markdown
+func sanitizeHTML(htmlContent []byte) string {
+	md, err := htmltomarkdown.ConvertString(string(htmlContent))
+	if err != nil {
+		return string(htmlContent)
+	}
+
+	return md
+}
+
+// fetchURL fetches content from a URL with a timeout
+func fetchURL(urlStr string) ([]byte, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), "GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set user agent to avoid being blocked by some servers
+	req.Header.Set("User-Agent", "skim/1.0 (+https://github.com/varunrandery/skim)")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+// isURL checks if a string is a valid URL
+func isURL(str string) bool {
+	_, err := url.ParseRequestURI(str)
+	if err != nil {
+		return false
+	}
+
+	u, err := url.Parse(str)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+
+	return true
+}
+
 // isBinaryFile checks if content appears to be binary by looking for null bytes
 func isBinaryFile(content []byte) bool {
 	checkSize := min(8192, len(content))
@@ -173,7 +230,14 @@ func isBinaryFile(content []byte) bool {
 	return false
 }
 
-// textFileExtensions lists common text file extensions for the filepicker filter
+func truncateWord(word string) string {
+	if utf8.RuneCountInString(word) <= 32 {
+		return word
+	}
+	runes := []rune(word)
+	return string(runes[:31]) + "..."
+}
+
 var textFileExtensions = []string{
 	".txt", ".md", ".markdown",
 	".go", ".js", ".ts", ".jsx", ".tsx",
@@ -420,14 +484,17 @@ func (m model) View() string {
 
 	if len(m.words) == 0 {
 		if m.fileError != "" {
-			return m.fileError + ". Press 'o' to open a text file."
+			return m.fileError + ". Press 'o' to open a text file or provide a URL as an argument."
 		}
-		return "No words to display. Press 'o' to open a text file."
+		return "No words to display. Press 'o' to open a text file or provide a URL as an argument."
 	}
 
 	word := m.words[m.currentIdx]
-	orpIdx := calculateORP(word)
-	runes := []rune(word)
+	// Truncate long words to prevent UI overflow
+	truncatedWord := truncateWord(word)
+
+	orpIdx := calculateORP(truncatedWord)
+	runes := []rune(truncatedWord)
 
 	normalStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	highlightStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
@@ -551,20 +618,41 @@ func main() {
 	args := flag.Args()
 
 	if len(args) >= 1 {
-		filePath := args[0]
-		content, err := os.ReadFile(filePath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
-			os.Exit(1)
-		}
-		if isBinaryFile(content) {
-			fmt.Fprintln(os.Stderr, "Cannot open binary file")
-			os.Exit(1)
-		}
-		words = tokenize(string(content))
-		if len(words) == 0 {
-			fmt.Fprintln(os.Stderr, "No words found in file")
-			os.Exit(1)
+		source := args[0]
+
+		// Check if the source is a URL
+		if isURL(source) {
+			fmt.Printf("Fetching content from URL: %s\n", source)
+			content, err := fetchURL(source)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error fetching URL: %v\n", err)
+				os.Exit(1)
+			}
+
+			sanitizedContent := sanitizeHTML(content)
+			words = tokenize(sanitizedContent)
+
+			if len(words) == 0 {
+				fmt.Fprintln(os.Stderr, "No words found in URL content")
+				os.Exit(1)
+			}
+		} else {
+			// Treat as a file path
+			filePath := source
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
+				os.Exit(1)
+			}
+			if isBinaryFile(content) {
+				fmt.Fprintln(os.Stderr, "Cannot open binary file")
+				os.Exit(1)
+			}
+			words = tokenize(string(content))
+			if len(words) == 0 {
+				fmt.Fprintln(os.Stderr, "No words found in file")
+				os.Exit(1)
+			}
 		}
 	}
 
