@@ -1,6 +1,6 @@
 # skim
 
-A terminal-based speed reader that displays text using the Rapid Serial Visual Presentation (RSVP) technique Optimal Recognition Point (ORP) highlighting.
+A terminal-based speed reader that displays text using the Rapid Serial Visual Presentation (RSVP) technique with Optimal Recognition Point (ORP) highlighting.
 
 ![skim](public/demo.png)
 
@@ -27,6 +27,7 @@ skim document.txt
 skim -wpm 400 article.md
 skim http://httpbin.org/html
 cat book.md | skim
+llm 'Explain what stdin is' | skim
 skim # Opens file picker
 ```
 
